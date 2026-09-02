@@ -28,7 +28,6 @@ HOME = Path.home()
 CONFIG_HOME = Path(os.environ.get("XDG_CONFIG_HOME", HOME / ".config"))
 LOCAL_BIN = HOME / ".local" / "bin"
 OH_MY_ZSH = HOME / ".oh-my-zsh"
-ZSH_CUSTOM = Path(os.environ.get("ZSH_CUSTOM", OH_MY_ZSH / "custom"))
 
 DRY_RUN = False
 SKIP_PKGS = False
@@ -155,6 +154,7 @@ BREW_CASKS = [
     "kitty",
     "docker",  # Docker Desktop on macOS
     "font-jetbrains-mono-nerd-font",
+    "font-symbols-only-nerd-font",  # Kitty symbol_map / Neovim icons
 ]
 
 APT_PACKAGES = [
@@ -374,21 +374,42 @@ def install_sshm() -> None:
 
 def install_nerd_font_linux() -> None:
     fonts_dir = HOME / ".local" / "share" / "fonts"
-    marker = fonts_dir / "JetBrainsMonoNerdFont-Regular.ttf"
-    if marker.exists():
-        log("JetBrainsMono Nerd Font already present", "ok")
+    markers = [
+        fonts_dir / "JetBrainsMonoNerdFontMono-Regular.ttf",
+        fonts_dir / "JetBrainsMonoNerdFont-Regular.ttf",
+        fonts_dir / "SymbolsNerdFontMono-Regular.ttf",
+    ]
+    if all(
+        (fonts_dir / name).exists()
+        for name in (
+            "JetBrainsMonoNerdFontMono-Regular.ttf",
+            "SymbolsNerdFontMono-Regular.ttf",
+        )
+    ) or (
+        (fonts_dir / "JetBrainsMonoNerdFont-Regular.ttf").exists()
+        and (fonts_dir / "SymbolsNerdFontMono-Regular.ttf").exists()
+    ):
+        log("JetBrainsMono + Symbols Nerd Fonts already present", "ok")
         return
-    log("Installing JetBrainsMono Nerd Font")
+    log("Installing JetBrainsMono + Symbols Nerd Fonts")
     if DRY_RUN:
         return
     ensure_dir(fonts_dir)
     with tempfile.TemporaryDirectory() as tmp:
-        zip_path = Path(tmp) / "font.zip"
-        download(
-            "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip",
-            zip_path,
-        )
-        run(["unzip", "-o", str(zip_path), "-d", str(fonts_dir)], check=False)
+        tmp_path = Path(tmp)
+        for url, name in (
+            (
+                "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip",
+                "JetBrainsMono.zip",
+            ),
+            (
+                "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/NerdFontsSymbolsOnly.zip",
+                "NerdFontsSymbolsOnly.zip",
+            ),
+        ):
+            zip_path = tmp_path / name
+            download(url, zip_path)
+            run(["unzip", "-o", str(zip_path), "-d", str(fonts_dir)], check=False)
     if which("fc-cache"):
         run(["fc-cache", "-f"], check=False)
 
@@ -409,24 +430,6 @@ def install_oh_my_zsh() -> None:
             'sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"',
             shell=True,
             env=env,
-        )
-
-    # zsh-autocomplete
-    plugin = ZSH_CUSTOM / "plugins" / "zsh-autocomplete"
-    if plugin.exists():
-        log("zsh-autocomplete already present", "ok")
-        if not DRY_RUN:
-            run(["git", "-C", str(plugin), "pull", "--ff-only"], check=False)
-    else:
-        ensure_dir(plugin.parent)
-        run(
-            [
-                "git",
-                "clone",
-                "--depth=1",
-                "https://github.com/marlonrichert/zsh-autocomplete.git",
-                str(plugin),
-            ]
         )
 
     # Make zsh default when possible

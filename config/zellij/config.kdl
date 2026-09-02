@@ -296,7 +296,7 @@ load_plugins {
     zellij:link
 }
 web_client {
-    font "monospace"
+    font "JetBrainsMono Nerd Font Mono"
 }
  
 // Use a simplified UI without special fonts (arrow glyphs)

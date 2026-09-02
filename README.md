@@ -24,12 +24,11 @@ Then open a new terminal (or run `exec zsh`). The first `nvim` launch installs L
 | Tool | Notes |
 |------|--------|
 | **zsh** + Oh My Zsh | Base shell |
-| **Oh My Posh** | Prompt — Catppuccin Mocha |
+| **Oh My Posh** | Prompt — `catppuccin.omp.json` (same as prior zshrc) |
 | **zsh-autosuggestions** | Fish-like suggestions |
-| **zsh-autocomplete** | Real-time completion (marlonrichert) |
 | **zellij** | Multiplexer — Catppuccin Mocha |
 | **neovim** + LazyVim | Catppuccin Mocha + markdown preview (`<leader>mp`) |
-| **kitty** | Terminal — Catppuccin Mocha |
+| **kitty** | Terminal — Catppuccin Macchiato + JetBrainsMono Nerd Font Mono + Symbols Nerd Font Mono |
 | **sshm** | [Gu1llaum-3/sshm](https://github.com/Gu1llaum-3/sshm) SSH TUI |
 | **k9s** | Skin: `catppuccin-mocha` |
 | **helm**, **docker**, **minikube** | Kubernetes / containers |
@@ -46,7 +45,7 @@ Then open a new terminal (or run `exec zsh`). The first `nvim` launch installs L
     ├── zsh/.zshrc
     ├── zellij/
     ├── nvim/               # LazyVim + catppuccin + markdown-preview
-    ├── kitty/
+    ├── kitty/              # includes fonts.conf (JetBrainsMono Nerd Font Mono)
     ├── oh-my-posh/
     ├── k9s/skins/
     └── tmux/
