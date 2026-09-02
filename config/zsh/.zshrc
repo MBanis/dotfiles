@@ -5,7 +5,7 @@ export ZSH="${ZSH:-$HOME/.oh-my-zsh}"
 ZSH_THEME=""
 
 # Plugins (oh-my-zsh + custom)
-plugins=(git)
+plugins=(git zsh-autosuggestions)
 
 source "$ZSH/oh-my-zsh.sh"
 
@@ -26,16 +26,6 @@ if command -v oh-my-posh >/dev/null 2>&1; then
   fi
   unset _omp_cfg
 fi
-
-# zsh-autosuggestions (Homebrew or Linux package path)
-for _sug in \
-  /opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh \
-  /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh \
-  /usr/local/share/zsh-autosuggestions/zsh-autosuggestions.zsh
-do
-  [[ -f "$_sug" ]] && source "$_sug" && break
-done
-unset _sug
 
 # Aliases
 alias weather='bash "$HOME/.local/bin/weather.sh"'

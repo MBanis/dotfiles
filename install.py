@@ -432,6 +432,25 @@ def install_oh_my_zsh() -> None:
             env=env,
         )
 
+    # OMZ custom plugin (required for plugins=(... zsh-autosuggestions))
+    zsh_custom = Path(os.environ.get("ZSH_CUSTOM", OH_MY_ZSH / "custom"))
+    autosuggest = zsh_custom / "plugins" / "zsh-autosuggestions"
+    if autosuggest.exists():
+        log("zsh-autosuggestions plugin already present", "ok")
+        if not DRY_RUN:
+            run(["git", "-C", str(autosuggest), "pull", "--ff-only"], check=False)
+    else:
+        ensure_dir(autosuggest.parent)
+        run(
+            [
+                "git",
+                "clone",
+                "--depth=1",
+                "https://github.com/zsh-users/zsh-autosuggestions",
+                str(autosuggest),
+            ]
+        )
+
     # Make zsh default when possible
     zsh = which("zsh")
     if zsh and os.environ.get("SHELL") != zsh:
