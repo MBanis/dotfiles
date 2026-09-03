@@ -582,6 +582,7 @@ def link_configs() -> None:
         (REPO_ROOT / "config" / "git" / "config", CONFIG_HOME / "git" / "config"),
         (REPO_ROOT / "config" / "zellij" / "config.kdl", CONFIG_HOME / "zellij" / "config.kdl"),
         (REPO_ROOT / "config" / "zellij" / "themes", CONFIG_HOME / "zellij" / "themes"),
+        (REPO_ROOT / "config" / "zellij" / "layouts", CONFIG_HOME / "zellij" / "layouts"),
         (REPO_ROOT / "config" / "nvim", CONFIG_HOME / "nvim"),
         (REPO_ROOT / "config" / "kitty", CONFIG_HOME / "kitty"),
         (REPO_ROOT / "config" / "oh-my-posh", CONFIG_HOME / "oh-my-posh"),

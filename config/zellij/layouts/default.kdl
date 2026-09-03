@@ -1,0 +1,14 @@
+// Custom default layout: compact-bar (top) + zjstatus (bottom).
+// Press "/" to toggle shortcut-key hints via the compact-bar tooltip.
+layout {
+    default_tab_template {
+        pane size=1 borderless=true {
+            plugin location="compact-bar"
+        }
+        children
+        pane size=1 borderless=true {
+            plugin location="status-bar"
+        }
+    }
+    tab name="Tab 1" focus=true
+}
