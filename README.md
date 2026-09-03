@@ -28,6 +28,8 @@ Then open a new terminal (or run `exec zsh`). The first `nvim` launch installs L
 | **zsh-autosuggestions** | Fish-like suggestions |
 | **zellij** | Multiplexer — Catppuccin Mocha |
 | **neovim** + LazyVim | Catppuccin Mocha + markdown preview (`<leader>mp`) + mermaid.nvim |
+| **markdownlint-cli2** | Markdown linter used by LazyVim’s markdown extra |
+
 | **kitty** | Terminal — Catppuccin Macchiato + JetBrainsMono Nerd Font Mono + Symbols Nerd Font Mono |
 | **sshm** | [Gu1llaum-3/sshm](https://github.com/Gu1llaum-3/sshm) SSH TUI |
 | **k9s** | Skin: `catppuccin-mocha` |
@@ -41,6 +43,7 @@ Then open a new terminal (or run `exec zsh`). The first `nvim` launch installs L
 | **fx** | Interactive JSON viewer |
 | **fastfetch** | System splash (`ff` — clears screen, waits for a key before the prompt) |
 | **cbonsai** | ASCII bonsai tree |
+| **Cursor user rules** | Symlinked to `~/.cursor/rules` (all projects) |
 | **linecast** | Terminal weather / radar panes |
 | **weather.sh** | DC weather Zellij layout → `~/.local/bin/weather.sh` |
 
@@ -53,6 +56,7 @@ Then open a new terminal (or run `exec zsh`). The first `nvim` launch installs L
 └── config/
     ├── zsh/.zshrc
     ├── git/config          # delta as git pager (XDG; keeps ~/.gitconfig identity)
+    ├── cursor/rules/       # user rules → ~/.cursor/rules
     ├── zellij/
     ├── nvim/               # LazyVim + catppuccin + markdown-preview
     ├── kitty/              # includes fonts.conf (JetBrainsMono Nerd Font Mono)
@@ -62,6 +66,10 @@ Then open a new terminal (or run `exec zsh`). The first `nvim` launch installs L
 ```
 
 Configs are **symlinked** into `~` / `~/.config`. Existing files are backed up as `*.bak.<timestamp>`.
+
+## Cursor user rules
+
+`config/cursor/rules/*.mdc` is linked to `~/.cursor/rules/` so Cursor applies them in **every project** for this account (not only this repo). Restart Cursor after install. On WSL, the installer also links `%USERPROFILE%\.cursor\rules` when `USERPROFILE` is set.
 
 ## Weather dashboard
 

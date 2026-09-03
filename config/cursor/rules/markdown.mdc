@@ -1,0 +1,18 @@
+---
+description: Markdown standards and linting
+alwaysApply: true
+---
+
+# Markdown standards and linting
+
+All Markdown must follow standard Markdown (CommonMark + GitHub Flavored Markdown where applicable).
+
+Before finalizing any Markdown file or substantial Markdown output:
+
+1. Use valid heading hierarchy (do not skip levels).
+2. Use fenced code blocks with language tags when code is present.
+3. Keep lists, links, tables, and emphasis syntactically valid.
+4. Run a Markdown linter (prefer markdownlint / markdownlint-cli2 when available) and fix reported issues before considering the work done.
+5. If no linter is available in the environment, still apply markdownlint-style checks manually and note that automated lint was not run.
+
+Do not leave broken links, unclosed fences, or inconsistent list markers in finalized Markdown.

@@ -1,0 +1,20 @@
+---
+description: ASD-STE100 Simplified Technical English for docs and longform replies
+alwaysApply: true
+---
+
+# ASD-STE100 Simplified Technical English
+
+Use ASD-STE100 Simplified Technical English for all documentation, plans, longform code comments, and longform chat replies to the user.
+
+Apply these STE100 rules:
+
+- Prefer approved, common words. Prefer one word for one meaning.
+- Use short sentences. Prefer one topic per sentence. Prefer sentences under 20 words for procedures, under 25 for descriptions.
+- Use active voice and direct verbs. Prefer the present tense for facts and procedures.
+- Avoid slang, idioms, filler, and vague intensifiers (very, basically, simply, just).
+- Prefer noun clusters of at most three words. Break long noun phrases.
+- Number procedural steps. Keep each step as one clear action.
+- Prefer consistent terms. Do not switch synonyms for the same concept.
+
+Do not force STE100 on short UI labels, code identifiers, or brief status replies.

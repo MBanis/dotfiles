@@ -157,6 +157,7 @@ BREW_FORMULAE = [
     "fx",
     "fastfetch",
     "cbonsai",
+    "markdownlint-cli2",
 ]
 
 BREW_CASKS = [
@@ -359,6 +360,14 @@ def install_cli_qol_linux() -> None:
             run(["sudo", "apt-get", "install", "-y", "cbonsai"], check=False)
         if not which("cbonsai"):
             log("cbonsai not found — install from https://gitlab.com/jallbrit/cbonsai", "warn")
+
+    if not which("markdownlint-cli2"):
+        if is_debian_like():
+            run(["sudo", "apt-get", "install", "-y", "markdownlint-cli2"], check=False)
+        if not which("markdownlint-cli2") and which("npm"):
+            run(["npm", "install", "-g", "markdownlint-cli2"], check=False)
+        if not which("markdownlint-cli2"):
+            log("markdownlint-cli2 not found — LazyVim markdown lint needs it (brew/npm)", "warn")
 
 
 def install_github_release_binary(repo: str, binary: str, asset_contains: str) -> None:
@@ -576,6 +585,30 @@ def link_configs() -> None:
         if weather.exists():
             weather.chmod(weather.stat().st_mode | stat.S_IEXEC)
 
+    link_cursor_rules()
+
+
+def cursor_rule_dest_dirs() -> list[Path]:
+    """User-level Cursor rules dirs (apply across all projects for this account)."""
+    dests = [HOME / ".cursor" / "rules"]
+    # WSL: Windows Cursor reads %USERPROFILE%\.cursor\rules
+    userprofile = os.environ.get("USERPROFILE")
+    if userprofile:
+        dests.append(Path(userprofile) / ".cursor" / "rules")
+    return dests
+
+
+def link_cursor_rules() -> None:
+    src_dir = REPO_ROOT / "config" / "cursor" / "rules"
+    if not src_dir.is_dir():
+        log(f"missing Cursor rules dir {src_dir}", "warn")
+        return
+    log("Linking Cursor user rules (~/.cursor/rules)")
+    for dest_dir in cursor_rule_dest_dirs():
+        ensure_dir(dest_dir)
+        for src in sorted(src_dir.glob("*.mdc")):
+            symlink(src, dest_dir / src.name)
+
 
 def install_packages(os_name: str) -> None:
     if SKIP_PKGS:
@@ -625,6 +658,7 @@ def print_summary(os_name: str) -> None:
         "fx",
         "fastfetch",
         "cbonsai",
+        "markdownlint-cli2",
     ]
     print()
     log("Install summary")

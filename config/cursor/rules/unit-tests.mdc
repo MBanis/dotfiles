@@ -1,0 +1,18 @@
+---
+description: Unit tests and coverage targets for generated application code
+alwaysApply: true
+---
+
+# Unit tests and coverage targets
+
+All generated application code must include unit tests where appropriate.
+
+Requirements:
+
+- Add or update unit tests with new or changed behavior that is testable.
+- Target at least 80% coverage for new or changed code under test.
+- Prefer the project's existing test framework and layout. If none exists, add a conventional setup for the stack.
+- Every project that includes generated code should have a testing strategy that states: what is unit-tested vs integration/e2e, how tests are run, and coverage targets (minimum 80% for unit coverage on relevant code).
+- Wire coverage into the build or CI when the project has a build pipeline. Fail or warn according to project convention, but keep the 80% target explicit.
+
+Skip unit tests only for trivial glue, generated-only artifacts, or pure config with no behavior. State the reason when skipping.
