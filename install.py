@@ -148,6 +148,15 @@ BREW_FORMULAE = [
     "linecast",
     "zsh-autosuggestions",
     "tmux",
+    "ripgrep",
+    "git-delta",
+    "glow",
+    "zoxide",
+    "eza",
+    "fzf",
+    "fx",
+    "fastfetch",
+    "cbonsai",
 ]
 
 BREW_CASKS = [
@@ -168,6 +177,7 @@ APT_PACKAGES = [
     "unzip",
     "build-essential",
     "fontconfig",
+    "ripgrep",
 ]
 
 
@@ -288,8 +298,67 @@ def install_linux_binaries() -> None:
     if not which("kitty") and is_debian_like():
         run(["sudo", "apt-get", "install", "-y", "kitty"], check=False)
 
+    # CLI QoL tools (macOS gets these via Homebrew formulae)
+    install_cli_qol_linux()
+
     # Nerd Font
     install_nerd_font_linux()
+
+
+def install_cli_qol_linux() -> None:
+    """Install ripgrep/delta/glow/zoxide/eza on Linux when missing."""
+    if is_debian_like():
+        # Best-effort apt names; ignore failures and fall back below
+        apt_bins = {
+            "ripgrep": "rg",
+            "eza": "eza",
+            "zoxide": "zoxide",
+            "glow": "glow",
+            "git-delta": "delta",
+        }
+        for pkg, binary in apt_bins.items():
+            if which(binary):
+                continue
+            run(["sudo", "apt-get", "install", "-y", pkg], check=False)
+
+    if not which("zoxide"):
+        run('curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash', shell=True, check=False)
+
+    if not which("eza"):
+        install_github_release_binary("eza-community/eza", "eza", asset_contains="linux")
+
+    if not which("delta"):
+        install_github_release_binary("dandavison/delta", "delta", asset_contains="unknown-linux")
+
+    if not which("glow"):
+        install_github_release_binary("charmbracelet/glow", "glow", asset_contains="Linux")
+
+    if not which("rg"):
+        install_github_release_binary("BurntSushi/ripgrep", "rg", asset_contains="unknown-linux")
+
+    if not which("fzf"):
+        if is_debian_like():
+            run(["sudo", "apt-get", "install", "-y", "fzf"], check=False)
+        if not which("fzf"):
+            install_github_release_binary("junegunn/fzf", "fzf", asset_contains="linux")
+
+    if not which("fx"):
+        if is_debian_like():
+            run(["sudo", "apt-get", "install", "-y", "fx"], check=False)
+        if not which("fx"):
+            install_github_release_binary("antonmedv/fx", "fx", asset_contains="linux")
+
+    if not which("fastfetch"):
+        if is_debian_like():
+            run(["sudo", "apt-get", "install", "-y", "fastfetch"], check=False)
+        if not which("fastfetch"):
+            install_github_release_binary("fastfetch-cli/fastfetch", "fastfetch", asset_contains="linux")
+
+    if not which("cbonsai"):
+        if is_debian_like():
+            run(["sudo", "apt-get", "install", "-y", "cbonsai"], check=False)
+        if not which("cbonsai"):
+            log("cbonsai not found — install from https://gitlab.com/jallbrit/cbonsai", "warn")
 
 
 def install_github_release_binary(repo: str, binary: str, asset_contains: str) -> None:
@@ -481,6 +550,7 @@ def link_configs() -> None:
 
     mappings = [
         (REPO_ROOT / "config" / "zsh" / ".zshrc", HOME / ".zshrc"),
+        (REPO_ROOT / "config" / "git" / "config", CONFIG_HOME / "git" / "config"),
         (REPO_ROOT / "config" / "zellij" / "config.kdl", CONFIG_HOME / "zellij" / "config.kdl"),
         (REPO_ROOT / "config" / "zellij" / "themes", CONFIG_HOME / "zellij" / "themes"),
         (REPO_ROOT / "config" / "nvim", CONFIG_HOME / "nvim"),
@@ -546,6 +616,15 @@ def print_summary(os_name: str) -> None:
         "linecast",
         "sshm",
         "kitty",
+        "rg",
+        "delta",
+        "glow",
+        "zoxide",
+        "eza",
+        "fzf",
+        "fx",
+        "fastfetch",
+        "cbonsai",
     ]
     print()
     log("Install summary")

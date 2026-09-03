@@ -27,8 +27,38 @@ if command -v oh-my-posh >/dev/null 2>&1; then
   unset _omp_cfg
 fi
 
+# fzf — shell keybindings/completion; also powers zoxide interactive (`cdi`)
+if command -v fzf >/dev/null 2>&1; then
+  eval "$(fzf --zsh)"
+fi
+
+# zoxide — try as `cd` (remove --cmd cd later if you want stock cd back)
+# With fzf installed, `cdi` opens an interactive directory picker
+if command -v zoxide >/dev/null 2>&1; then
+  eval "$(zoxide init zsh --cmd cd)"
+fi
+
 # Aliases
 alias weather='bash "$HOME/.local/bin/weather.sh"'
 alias vim='nvim'
 alias k='kubectl'
 alias zj='zellij'
+
+# eza — try as `ls` (use `\ls` for the real binary)
+if command -v eza >/dev/null 2>&1; then
+  alias ls='eza --icons --group-directories-first'
+  alias ll='eza -l --icons --group-directories-first'
+  alias la='eza -la --icons --group-directories-first'
+  alias tree='eza --tree --icons'
+fi
+
+# fastfetch — `ff` clears the screen/scrollback and waits for a key so the prompt stays hidden
+if command -v fastfetch >/dev/null 2>&1; then
+  ff() {
+    printf '\033[H\033[2J\033[3J'
+    printf '\033[?25l'
+    command fastfetch "$@"
+    read -sk 1
+    printf '\033[?25h'
+  }
+fi

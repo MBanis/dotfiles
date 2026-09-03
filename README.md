@@ -27,11 +27,20 @@ Then open a new terminal (or run `exec zsh`). The first `nvim` launch installs L
 | **Oh My Posh** | Prompt — `catppuccin.omp.json` (same as prior zshrc) |
 | **zsh-autosuggestions** | Fish-like suggestions |
 | **zellij** | Multiplexer — Catppuccin Mocha |
-| **neovim** + LazyVim | Catppuccin Mocha + markdown preview (`<leader>mp`) |
+| **neovim** + LazyVim | Catppuccin Mocha + markdown preview (`<leader>mp`) + mermaid.nvim |
 | **kitty** | Terminal — Catppuccin Macchiato + JetBrainsMono Nerd Font Mono + Symbols Nerd Font Mono |
 | **sshm** | [Gu1llaum-3/sshm](https://github.com/Gu1llaum-3/sshm) SSH TUI |
 | **k9s** | Skin: `catppuccin-mocha` |
 | **helm**, **docker**, **minikube** | Kubernetes / containers |
+| **ripgrep** (`rg`) | Fast search |
+| **delta** | Git diffs (via `~/.config/git/config`) |
+| **glow** | Markdown in the terminal |
+| **zoxide** | Smarter `cd` (aliased over `cd` to try); `cdi` interactive with fzf |
+| **eza** | Modern `ls` (aliased over `ls` / `ll` / `la`) |
+| **fzf** | Fuzzy finder (shell + zoxide `cdi`) |
+| **fx** | Interactive JSON viewer |
+| **fastfetch** | System splash (`ff` — clears screen, waits for a key before the prompt) |
+| **cbonsai** | ASCII bonsai tree |
 | **linecast** | Terminal weather / radar panes |
 | **weather.sh** | DC weather Zellij layout → `~/.local/bin/weather.sh` |
 
@@ -43,6 +52,7 @@ Then open a new terminal (or run `exec zsh`). The first `nvim` launch installs L
 ├── bin/weather.sh
 └── config/
     ├── zsh/.zshrc
+    ├── git/config          # delta as git pager (XDG; keeps ~/.gitconfig identity)
     ├── zellij/
     ├── nvim/               # LazyVim + catppuccin + markdown-preview
     ├── kitty/              # includes fonts.conf (JetBrainsMono Nerd Font Mono)
