@@ -139,6 +139,7 @@ BREW_FORMULAE = [
     "zsh",
     "git",
     "curl",
+    "jq",
     "neovim",
     "zellij",
     "k9s",
@@ -171,6 +172,7 @@ APT_PACKAGES = [
     "zsh",
     "git",
     "curl",
+    "jq",
     "wget",
     "ca-certificates",
     "gnupg",
@@ -552,6 +554,24 @@ def install_tmux_catppuccin() -> None:
     )
 
 
+def install_zellij_plugins() -> None:
+    plugin_dir = CONFIG_HOME / "zellij" / "plugins"
+    ensure_dir(plugin_dir)
+
+    plugins = {
+        "zjstatus.wasm": "https://github.com/dj95/zjstatus/releases/latest/download/zjstatus.wasm",
+        "zextract.wasm": "https://github.com/codingfragments/zellij-zextract/releases/latest/download/zextract.wasm",
+        "zellij-agent-activity.wasm": "https://github.com/vmaerten/zellij-agent-activity/releases/latest/download/zellij-agent-activity.wasm",
+    }
+
+    for name, url in plugins.items():
+        dest = plugin_dir / name
+        if dest.exists():
+            log(f"zellij plugin already present: {name}", "ok")
+            continue
+        download(url, dest)
+
+
 def link_configs() -> None:
     log("Linking configuration files")
     ensure_dir(LOCAL_BIN)
@@ -586,6 +606,7 @@ def link_configs() -> None:
             weather.chmod(weather.stat().st_mode | stat.S_IEXEC)
 
     link_cursor_rules()
+    link_cursor_hooks()
 
 
 def cursor_rule_dest_dirs() -> list[Path]:
@@ -608,6 +629,24 @@ def link_cursor_rules() -> None:
         ensure_dir(dest_dir)
         for src in sorted(src_dir.glob("*.mdc")):
             symlink(src, dest_dir / src.name)
+
+
+def link_cursor_hooks() -> None:
+    cursor_home = HOME / ".cursor"
+    hooks_dir = cursor_home / "hooks"
+    ensure_dir(cursor_home)
+    ensure_dir(hooks_dir)
+
+    symlink(REPO_ROOT / "config" / "cursor" / "hooks.json", cursor_home / "hooks.json")
+    symlink(
+        REPO_ROOT / "config" / "cursor" / "hooks" / "zellij-agent-activity-cursor.sh",
+        hooks_dir / "zellij-agent-activity-cursor.sh",
+    )
+
+    if not DRY_RUN:
+        hook_script = hooks_dir / "zellij-agent-activity-cursor.sh"
+        if hook_script.exists():
+            hook_script.chmod(hook_script.stat().st_mode | stat.S_IEXEC)
 
 
 def install_packages(os_name: str) -> None:
@@ -634,6 +673,7 @@ def install_packages(os_name: str) -> None:
     install_sshm()
     install_oh_my_zsh()
     install_tmux_catppuccin()
+    install_zellij_plugins()
 
 
 def print_summary(os_name: str) -> None:
@@ -650,6 +690,7 @@ def print_summary(os_name: str) -> None:
         "sshm",
         "kitty",
         "rg",
+        "jq",
         "delta",
         "glow",
         "zoxide",

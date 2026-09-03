@@ -26,15 +26,15 @@ Then open a new terminal (or run `exec zsh`). The first `nvim` launch installs L
 | **zsh** + Oh My Zsh | Base shell |
 | **Oh My Posh** | Prompt — `catppuccin.omp.json` (same as prior zshrc) |
 | **zsh-autosuggestions** | Fish-like suggestions |
-| **zellij** | Multiplexer — Catppuccin Mocha |
+| **zellij** | Multiplexer — Catppuccin Mocha + `zjstatus` + `zextract` + `agent-activity` |
 | **neovim** + LazyVim | Catppuccin Mocha + markdown preview (`<leader>mp`) + mermaid.nvim |
 | **markdownlint-cli2** | Markdown linter used by LazyVim’s markdown extra |
-
 | **kitty** | Terminal — Catppuccin Macchiato + JetBrainsMono Nerd Font Mono + Symbols Nerd Font Mono |
 | **sshm** | [Gu1llaum-3/sshm](https://github.com/Gu1llaum-3/sshm) SSH TUI |
 | **k9s** | Skin: `catppuccin-mocha` |
 | **helm**, **docker**, **minikube** | Kubernetes / containers |
 | **ripgrep** (`rg`) | Fast search |
+| **jq** | JSON processor; required for Cursor → Zellij agent activity hooks |
 | **delta** | Git diffs (via `~/.config/git/config`) |
 | **glow** | Markdown in the terminal |
 | **zoxide** | Smarter `cd` (aliased over `cd` to try); `cdi` interactive with fzf |
@@ -44,6 +44,7 @@ Then open a new terminal (or run `exec zsh`). The first `nvim` launch installs L
 | **fastfetch** | System splash (`ff` — clears screen, waits for a key before the prompt) |
 | **cbonsai** | ASCII bonsai tree |
 | **Cursor user rules** | Symlinked to `~/.cursor/rules` (all projects) |
+| **Cursor hooks** | Symlinked to `~/.cursor/hooks.json` for global `agent-activity` wiring |
 | **linecast** | Terminal weather / radar panes |
 | **weather.sh** | DC weather Zellij layout → `~/.local/bin/weather.sh` |
 
@@ -56,6 +57,8 @@ Then open a new terminal (or run `exec zsh`). The first `nvim` launch installs L
 └── config/
     ├── zsh/.zshrc
     ├── git/config          # delta as git pager (XDG; keeps ~/.gitconfig identity)
+    ├── cursor/hooks.json   # global Cursor hooks → ~/.cursor/hooks.json
+    ├── cursor/hooks/       # hook scripts → ~/.cursor/hooks/
     ├── cursor/rules/       # user rules → ~/.cursor/rules
     ├── zellij/
     ├── nvim/               # LazyVim + catppuccin + markdown-preview
@@ -70,6 +73,20 @@ Configs are **symlinked** into `~` / `~/.config`. Existing files are backed up a
 ## Cursor user rules
 
 `config/cursor/rules/*.mdc` is linked to `~/.cursor/rules/` so Cursor applies them in **every project** for this account (not only this repo). Restart Cursor after install. On WSL, the installer also links `%USERPROFILE%\.cursor\rules` when `USERPROFILE` is set.
+
+## Cursor hooks
+
+`config/cursor/hooks.json` is linked to `~/.cursor/hooks.json`, and `config/cursor/hooks/*` is linked into `~/.cursor/hooks/`.
+
+This wires Cursor Agent / CLI events into the Zellij `agent-activity` plugin through `zellij pipe`. The hook uses `jq`, `bash`, and `zellij`.
+
+## Zellij plugins
+
+- `zjstatus` replaces the default bottom status bar
+- `zextract` opens on `Alt-x`
+- `zellij-agent-activity` prefixes tab names with the active agent state
+
+The installer downloads the plugin `.wasm` files into `~/.config/zellij/plugins/`.
 
 ## Weather dashboard
 

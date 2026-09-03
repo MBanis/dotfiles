@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "./hooks/zellij-agent-activity-cursor.sh"
+      }
+    ],
+    "sessionEnd": [
+      {
+        "command": "./hooks/zellij-agent-activity-cursor.sh"
+      }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "command": "./hooks/zellij-agent-activity-cursor.sh"
+      }
+    ],
+    "preToolUse": [
+      {
+        "command": "./hooks/zellij-agent-activity-cursor.sh"
+      }
+    ],
+    "postToolUse": [
+      {
+        "command": "./hooks/zellij-agent-activity-cursor.sh"
+      }
+    ],
+    "postToolUseFailure": [
+      {
+        "command": "./hooks/zellij-agent-activity-cursor.sh"
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": "./hooks/zellij-agent-activity-cursor.sh"
+      }
+    ],
+    "afterShellExecution": [
+      {
+        "command": "./hooks/zellij-agent-activity-cursor.sh"
+      }
+    ],
+    "beforeReadFile": [
+      {
+        "command": "./hooks/zellij-agent-activity-cursor.sh"
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": "./hooks/zellij-agent-activity-cursor.sh"
+      }
+    ],
+    "stop": [
+      {
+        "command": "./hooks/zellij-agent-activity-cursor.sh"
+      }
+    ]
+  }
+}
