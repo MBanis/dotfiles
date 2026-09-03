@@ -42,6 +42,7 @@ Then open a new terminal (or run `exec zsh`). The first `nvim` launch installs L
 | **fzf** | Fuzzy finder (shell + zoxide `cdi`) |
 | **fx** | Interactive JSON viewer |
 | **fastfetch** | System splash (`ff` — clears screen, waits for a key before the prompt) |
+| **btop** | Resource monitor — Catppuccin Mocha |
 | **cbonsai** | ASCII bonsai tree |
 | **Cursor user rules** | Symlinked to `~/.cursor/rules` (all projects) |
 | **Cursor hooks** | Symlinked to `~/.cursor/hooks.json` for global `agent-activity` wiring |
@@ -64,6 +65,7 @@ Then open a new terminal (or run `exec zsh`). The first `nvim` launch installs L
     ├── nvim/               # LazyVim + catppuccin + markdown-preview
     ├── kitty/              # includes fonts.conf (JetBrainsMono Nerd Font Mono)
     ├── oh-my-posh/
+    ├── btop/               # Catppuccin Mocha theme + btop.conf
     ├── k9s/skins/
     └── tmux/
 ```

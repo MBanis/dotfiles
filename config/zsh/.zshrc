@@ -20,7 +20,8 @@ export PATH="$HOME/.local/bin:$PATH"
 if command -v oh-my-posh >/dev/null 2>&1; then
   _omp_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/oh-my-posh/catppuccin.omp.json"
   if [[ -f "$_omp_cfg" ]]; then
-    eval "$(oh-my-posh init zsh --config "$_omp_cfg")"
+    # :A resolves symlinks to an absolute path (helps some readers)
+    eval "$(oh-my-posh init zsh --config "${_omp_cfg:A}")"
   else
     eval "$(oh-my-posh init zsh --config https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/catppuccin.omp.json)"
   fi
@@ -28,8 +29,23 @@ if command -v oh-my-posh >/dev/null 2>&1; then
 fi
 
 # fzf — shell keybindings/completion; also powers zoxide interactive (`cdi`)
+# Debian bookworm ships fzf without `fzf --zsh` (added in newer releases).
 if command -v fzf >/dev/null 2>&1; then
-  eval "$(fzf --zsh)"
+  if fzf --help 2>&1 | grep -q -- '--zsh'; then
+    eval "$(fzf --zsh)"
+  else
+    for _fzf_file in \
+      /usr/share/doc/fzf/examples/key-bindings.zsh \
+      /usr/share/fzf/key-bindings.zsh \
+      /usr/share/fzf/shell/key-bindings.zsh \
+      /usr/share/doc/fzf/examples/completion.zsh \
+      /usr/share/fzf/completion.zsh \
+      /usr/share/fzf/shell/completion.zsh
+    do
+      [[ -r "$_fzf_file" ]] && source "$_fzf_file"
+    done
+    unset _fzf_file
+  fi
 fi
 
 # zoxide — try as `cd` (remove --cmd cd later if you want stock cd back)

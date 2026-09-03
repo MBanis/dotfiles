@@ -12,8 +12,10 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import getpass
 import os
 import platform
+import pwd
 import shutil
 import stat
 import subprocess
@@ -68,6 +70,25 @@ def which(name: str) -> str | None:
     return shutil.which(name)
 
 
+def current_user() -> str:
+    """Resolve the login name without requiring a controlling TTY."""
+    for candidate in (
+        os.environ.get("USER"),
+        os.environ.get("LOGNAME"),
+        os.environ.get("USERNAME"),
+    ):
+        if candidate:
+            return candidate
+    try:
+        return pwd.getpwuid(os.getuid()).pw_name
+    except KeyError:
+        return getpass.getuser()
+
+
+def running_in_container() -> bool:
+    return Path("/.dockerenv").exists() or Path("/run/.containerenv").exists()
+
+
 def ensure_dir(path: Path) -> None:
     if DRY_RUN:
         log(f"[dry-run] mkdir -p {path}", "warn")
@@ -101,6 +122,83 @@ def symlink(src: Path, dest: Path) -> None:
         return
     dest.symlink_to(src)
     log(f"linked {dest} -> {src}", "ok")
+
+
+def copy_path(src: Path, dest: Path) -> None:
+    """Copy a file or directory into place (used in containers to avoid bind-mount EIO)."""
+    src = src.resolve()
+    dest = dest.expanduser()
+    ensure_dir(dest.parent)
+    if dest.exists() or dest.is_symlink():
+        backup_path(dest)
+    if DRY_RUN:
+        log(f"[dry-run] cp -a {src} {dest}", "warn")
+        return
+    if src.is_dir():
+        _copytree_resilient(src, dest)
+    else:
+        _copyfile_resilient(src, dest)
+    log(f"copied {dest} <- {src}", "ok")
+
+
+def _copyfile_resilient(src: Path, dest: Path) -> None:
+    """Copy one file. Retry once on transient I/O errors (Docker Desktop / macOS mounts)."""
+    last_exc: OSError | None = None
+    for _ in range(2):
+        try:
+            # Read into memory first — avoids some virtiofs EIO cases on macOS bind mounts.
+            data = src.read_bytes()
+            dest.write_bytes(data)
+            shutil.copystat(src, dest, follow_symlinks=True)
+            return
+        except OSError as exc:
+            last_exc = exc
+    assert last_exc is not None
+    raise last_exc
+
+
+def _copytree_resilient(src: Path, dest: Path) -> None:
+    """Copy a directory tree, skipping files that keep failing with I/O errors."""
+    dest.mkdir(parents=True, exist_ok=True)
+    failures: list[str] = []
+    for root, dirs, files in os.walk(src):
+        root_path = Path(root)
+        rel = root_path.relative_to(src)
+        target_root = dest / rel
+        target_root.mkdir(parents=True, exist_ok=True)
+        for name in dirs:
+            (target_root / name).mkdir(parents=True, exist_ok=True)
+        for name in files:
+            s = root_path / name
+            d = target_root / name
+            try:
+                _copyfile_resilient(s, d)
+            except OSError as exc:
+                failures.append(f"{s}: {exc}")
+                log(f"skip copy (I/O error): {s}", "warn")
+    if failures and len(failures) == sum(1 for _ in src.rglob("*") if _.is_file()):
+        raise OSError(f"Failed to copy any files from {src}")
+
+
+def place_config(src: Path, dest: Path) -> None:
+    """Symlink on hosts; copy inside containers (Docker bind mounts break some readers)."""
+    if running_in_container() or os.environ.get("DOTFILES_COPY_CONFIGS") == "1":
+        copy_path(src, dest)
+    else:
+        symlink(src, dest)
+
+
+def ensure_executable(path: Path) -> None:
+    """Set the executable bit when possible. Skip read-only targets quietly."""
+    if DRY_RUN or not path.exists():
+        return
+    try:
+        mode = path.stat().st_mode
+        if mode & stat.S_IXUSR:
+            return
+        path.chmod(mode | stat.S_IEXEC)
+    except OSError as exc:
+        log(f"could not set executable bit on {path}: {exc}", "warn")
 
 
 def download(url: str, dest: Path) -> None:
@@ -158,6 +256,7 @@ BREW_FORMULAE = [
     "fx",
     "fastfetch",
     "cbonsai",
+    "btop",
     "markdownlint-cli2",
 ]
 
@@ -181,6 +280,8 @@ APT_PACKAGES = [
     "build-essential",
     "fontconfig",
     "ripgrep",
+    "python3-pip",
+    "python3-venv",
 ]
 
 
@@ -239,20 +340,9 @@ def install_linux_binaries() -> None:
             shell=True,
         )
 
-    # Neovim (AppImage or apt)
-    if not which("nvim"):
-        if is_debian_like():
-            run(["sudo", "apt-get", "install", "-y", "neovim"], check=False)
-        if not which("nvim"):
-            log("Installing Neovim AppImage")
-            appimage = LOCAL_BIN / "nvim.appimage"
-            download(
-                "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.appimage",
-                appimage,
-            )
-            if not DRY_RUN:
-                appimage.chmod(appimage.stat().st_mode | stat.S_IEXEC)
-                symlink(appimage, LOCAL_BIN / "nvim")
+    # Neovim — Debian/Ubuntu apt is often too old for LazyVim (needs >= 0.8).
+    # Prefer the official release tarball into ~/.local over apt / AppImage.
+    install_neovim_linux()
 
     # Zellij
     if not which("zellij"):
@@ -276,22 +366,20 @@ def install_linux_binaries() -> None:
         if not DRY_RUN:
             dest.chmod(dest.stat().st_mode | stat.S_IEXEC)
 
-    # Docker
-    if not which("docker"):
-        if is_debian_like():
-            log("Installing Docker via get.docker.com")
-            run("curl -fsSL https://get.docker.com | sudo sh", shell=True)
-            run(["sudo", "usermod", "-aG", "docker", os.getlogin()], check=False)
-        else:
-            log("Install Docker manually for this distro", "warn")
+    # Docker (skip when already inside a container — nested Docker is optional)
+    if which("docker"):
+        pass
+    elif running_in_container():
+        log("Skipping Docker install inside a container", "warn")
+    elif is_debian_like():
+        log("Installing Docker via get.docker.com")
+        run("curl -fsSL https://get.docker.com | sudo sh", shell=True)
+        run(["sudo", "usermod", "-aG", "docker", current_user()], check=False)
+    else:
+        log("Install Docker manually for this distro", "warn")
 
-    # linecast (pip)
-    if not which("linecast"):
-        pip = which("pip3") or which("pip")
-        if pip:
-            run([pip, "install", "--user", "linecast"], check=False)
-        else:
-            log("pip not found — install linecast manually: pip install linecast", "warn")
+    # linecast — Debian blocks bare pip installs (PEP 668); use a user venv
+    install_linecast()
 
     # zsh-autosuggestions
     if is_debian_like():
@@ -311,18 +399,23 @@ def install_linux_binaries() -> None:
 def install_cli_qol_linux() -> None:
     """Install ripgrep/delta/glow/zoxide/eza on Linux when missing."""
     if is_debian_like():
-        # Best-effort apt names; ignore failures and fall back below
+        # Best-effort apt names; missing packages fall back to GitHub releases.
         apt_bins = {
             "ripgrep": "rg",
             "eza": "eza",
             "zoxide": "zoxide",
             "glow": "glow",
             "git-delta": "delta",
+            "fzf": "fzf",
+            "fx": "fx",
+            "fastfetch": "fastfetch",
+            "cbonsai": "cbonsai",
+            "btop": "btop",
+            "markdownlint-cli2": "markdownlint-cli2",
         }
-        for pkg, binary in apt_bins.items():
-            if which(binary):
-                continue
-            run(["sudo", "apt-get", "install", "-y", pkg], check=False)
+        needed = [pkg for pkg, binary in apt_bins.items() if not which(binary)]
+        if needed:
+            apt_install_if_available(needed)
 
     if not which("zoxide"):
         run('curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash', shell=True, check=False)
@@ -340,36 +433,205 @@ def install_cli_qol_linux() -> None:
         install_github_release_binary("BurntSushi/ripgrep", "rg", asset_contains="unknown-linux")
 
     if not which("fzf"):
-        if is_debian_like():
-            run(["sudo", "apt-get", "install", "-y", "fzf"], check=False)
-        if not which("fzf"):
-            install_github_release_binary("junegunn/fzf", "fzf", asset_contains="linux")
+        install_github_release_binary("junegunn/fzf", "fzf", asset_contains="linux")
 
     if not which("fx"):
-        if is_debian_like():
-            run(["sudo", "apt-get", "install", "-y", "fx"], check=False)
-        if not which("fx"):
-            install_github_release_binary("antonmedv/fx", "fx", asset_contains="linux")
+        install_github_release_binary("antonmedv/fx", "fx", asset_contains="linux")
 
     if not which("fastfetch"):
-        if is_debian_like():
-            run(["sudo", "apt-get", "install", "-y", "fastfetch"], check=False)
-        if not which("fastfetch"):
-            install_github_release_binary("fastfetch-cli/fastfetch", "fastfetch", asset_contains="linux")
+        install_github_release_binary("fastfetch-cli/fastfetch", "fastfetch", asset_contains="linux")
+
+    if not which("btop"):
+        install_github_release_binary("aristocratos/btop", "btop", asset_contains="linux")
 
     if not which("cbonsai"):
-        if is_debian_like():
-            run(["sudo", "apt-get", "install", "-y", "cbonsai"], check=False)
-        if not which("cbonsai"):
-            log("cbonsai not found — install from https://gitlab.com/jallbrit/cbonsai", "warn")
+        log("cbonsai not found — install from https://gitlab.com/jallbrit/cbonsai", "warn")
 
     if not which("markdownlint-cli2"):
-        if is_debian_like():
-            run(["sudo", "apt-get", "install", "-y", "markdownlint-cli2"], check=False)
-        if not which("markdownlint-cli2") and which("npm"):
+        if which("npm"):
             run(["npm", "install", "-g", "markdownlint-cli2"], check=False)
         if not which("markdownlint-cli2"):
             log("markdownlint-cli2 not found — LazyVim markdown lint needs it (brew/npm)", "warn")
+
+def apt_package_available(pkg: str) -> bool:
+    """Return True when apt-cache knows about a package."""
+    if DRY_RUN:
+        return True
+    if not which("apt-cache"):
+        return False
+    result = subprocess.run(
+        ["apt-cache", "show", pkg],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return result.returncode == 0
+
+
+def apt_install_if_available(pkgs: Iterable[str]) -> None:
+    available = [pkg for pkg in pkgs if apt_package_available(pkg)]
+    missing = [pkg for pkg in pkgs if pkg not in available]
+    for pkg in missing:
+        log(f"apt package not available: {pkg} (will try other sources)", "warn")
+    if available:
+        run(["sudo", "apt-get", "install", "-y", *available], check=False)
+
+
+def _pip_available() -> bool:
+    """True when `python3 -m pip` works."""
+    if DRY_RUN:
+        return True
+    result = subprocess.run(
+        [sys.executable, "-m", "pip", "--version"],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return result.returncode == 0
+
+
+def python_version_tuple() -> tuple[int, int]:
+    return sys.version_info.major, sys.version_info.minor
+
+
+def install_linecast() -> None:
+    """Install linecast into a user venv and expose ~/.local/bin/linecast."""
+    if which("linecast") or (LOCAL_BIN / "linecast").exists():
+        log("linecast already installed", "ok")
+        return
+
+    if python_version_tuple() < (3, 10):
+        log(
+            f"linecast needs Python >= 3.10 (found {sys.version.split()[0]}); skipping",
+            "warn",
+        )
+        return
+
+    if is_debian_like():
+        apt_install_if_available(["python3-pip", "python3-venv"])
+
+    if DRY_RUN:
+        log("[dry-run] python3 -m venv + pip install linecast", "warn")
+        return
+
+    venv_dir = HOME / ".local" / "share" / "linecast-venv"
+    venv_python = venv_dir / "bin" / "python"
+    venv_linecast = venv_dir / "bin" / "linecast"
+
+    ensure_dir(venv_dir.parent)
+    if not venv_python.exists():
+        log(f"Creating linecast venv at {venv_dir}")
+        rc = run([sys.executable, "-m", "venv", str(venv_dir)], check=False)
+        if rc != 0 or not venv_python.exists():
+            log("Failed to create linecast venv (is python3-venv installed?)", "err")
+            return
+
+    log("Installing linecast into user venv")
+    rc = run([str(venv_python), "-m", "pip", "install", "--upgrade", "pip", "linecast"], check=False)
+    if rc != 0 or not venv_linecast.exists():
+        log("linecast pip install failed", "err")
+        return
+
+    ensure_dir(LOCAL_BIN)
+    dest = LOCAL_BIN / "linecast"
+    if dest.exists() or dest.is_symlink():
+        dest.unlink()
+    dest.symlink_to(venv_linecast)
+    ensure_executable(dest)
+    os.environ["PATH"] = f"{LOCAL_BIN}:{os.environ.get('PATH', '')}"
+    log(f"installed {dest} -> {venv_linecast}", "ok")
+
+
+ARCHIVE_SUFFIXES = (".tar.gz", ".tgz", ".tar.xz", ".txz", ".zip")
+SKIP_ASSET_SUFFIXES = (
+    ".deb",
+    ".rpm",
+    ".apk",
+    ".exe",
+    ".msi",
+    ".dmg",
+    ".pkg",
+    ".sha256",
+    ".sha512",
+    ".sig",
+    ".asc",
+    ".txt",
+    ".md",
+    ".json",
+)
+
+
+def arch_hints_for(machine: str | None = None) -> list[str]:
+    arch = (machine or platform.machine()).lower()
+    if arch in ("x86_64", "amd64"):
+        return ["x86_64", "amd64"]
+    if arch in ("aarch64", "arm64"):
+        return ["arm64", "aarch64"]
+    return [arch]
+
+
+def is_usable_release_asset(name: str, binary: str) -> bool:
+    lower = name.lower()
+    if any(lower.endswith(ext) for ext in SKIP_ASSET_SUFFIXES):
+        return False
+    if any(lower.endswith(ext) for ext in ARCHIVE_SUFFIXES):
+        return True
+    if name == binary:
+        return True
+    # Bare binaries such as fx_linux_arm64
+    stem = Path(name).name
+    return stem.startswith(f"{binary}_") or stem.startswith(f"{binary}-")
+
+
+def score_release_asset(name: str) -> tuple[int, int, str]:
+    """Lower score is better. Prefer plain archives over polyfilled/musl builds."""
+    lower = name.lower()
+    penalty = 0
+    if "polyfilled" in lower:
+        penalty += 20
+    if "musl" in lower:
+        penalty += 10
+    if lower.endswith(".zip"):
+        penalty += 2
+    if lower.endswith((".tar.xz", ".txz")):
+        penalty += 1
+    if not any(lower.endswith(ext) for ext in ARCHIVE_SUFFIXES):
+        # Prefer archives when both exist; bare binaries are fine when alone.
+        penalty += 0
+    return (penalty, len(name), name)
+
+
+def select_release_asset(
+    assets: list[dict],
+    binary: str,
+    asset_contains: str,
+    machine: str | None = None,
+) -> dict | None:
+    arch_hints = arch_hints_for(machine)
+    candidates = []
+    for asset in assets:
+        name = asset.get("name", "")
+        lower = name.lower()
+        if asset_contains.lower() not in lower:
+            continue
+        if not any(hint in lower for hint in arch_hints):
+            continue
+        if not is_usable_release_asset(name, binary):
+            continue
+        candidates.append(asset)
+    if not candidates:
+        return None
+    candidates.sort(key=lambda a: score_release_asset(a["name"]))
+    return candidates[0]
+
+
+def find_binary_in_extract_dir(root: Path, binary: str) -> Path | None:
+    matches = [path for path in root.rglob(binary) if path.is_file()]
+    if not matches:
+        return None
+    # Prefer .../bin/<binary> when the archive ships a full prefix tree.
+    matches.sort(key=lambda p: (0 if p.parent.name == "bin" else 1, len(p.parts), str(p)))
+    return matches[0]
 
 
 def install_github_release_binary(repo: str, binary: str, asset_contains: str) -> None:
@@ -381,57 +643,157 @@ def install_github_release_binary(repo: str, binary: str, asset_contains: str) -
     if DRY_RUN:
         log(f"[dry-run] install {binary} from {repo}", "warn")
         return
-    with urllib.request.urlopen(api) as resp:
-        data = json.load(resp)
+    try:
+        with urllib.request.urlopen(api) as resp:
+            data = json.load(resp)
+    except Exception as exc:
+        log(f"Failed to query releases for {repo}: {exc}", "err")
+        return
 
-    arch = platform.machine().lower()
-    if arch in ("x86_64", "amd64"):
-        arch_hints = ["x86_64", "amd64"]
-    elif arch in ("aarch64", "arm64"):
-        arch_hints = ["arm64", "aarch64"]
-    else:
-        arch_hints = [arch]
-
-    candidates = []
-    for a in data.get("assets", []):
-        name = a["name"]
-        lower = name.lower()
-        if asset_contains.lower() not in lower:
-            continue
-        if not any(h in lower for h in arch_hints):
-            continue
-        if lower.endswith((".tar.gz", ".tgz", ".zip")) or name == binary:
-            candidates.append(a)
-
-    if not candidates:
+    asset = select_release_asset(
+        data.get("assets", []),
+        binary=binary,
+        asset_contains=asset_contains,
+    )
+    if asset is None:
+        arch = platform.machine().lower()
         log(f"Could not find release asset for {repo} ({binary}, {asset_contains}, {arch})", "warn")
         return
 
-    asset = candidates[0]
     url = asset["browser_download_url"]
     ensure_dir(LOCAL_BIN)
-    with tempfile.TemporaryDirectory() as tmp:
-        tmp_path = Path(tmp)
-        archive = tmp_path / asset["name"]
-        download(url, archive)
-        if archive.name.endswith(".zip"):
-            run(["unzip", "-o", str(archive), "-d", str(tmp_path)])
-        elif archive.name.endswith((".tar.gz", ".tgz")):
-            run(["tar", "-xzf", str(archive), "-C", str(tmp_path)])
-        else:
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            archive = tmp_path / asset["name"]
+            download(url, archive)
+            lower_name = archive.name.lower()
+            if lower_name.endswith(".zip"):
+                run(["unzip", "-o", str(archive), "-d", str(tmp_path)])
+                source = find_binary_in_extract_dir(tmp_path, binary)
+            elif lower_name.endswith((".tar.gz", ".tgz")):
+                run(["tar", "-xzf", str(archive), "-C", str(tmp_path)])
+                source = find_binary_in_extract_dir(tmp_path, binary)
+            elif lower_name.endswith((".tar.xz", ".txz")):
+                run(["tar", "-xJf", str(archive), "-C", str(tmp_path)])
+                source = find_binary_in_extract_dir(tmp_path, binary)
+            else:
+                source = archive
+
+            if source is None:
+                log(f"Binary {binary} not found in archive", "err")
+                return
+
             dest = LOCAL_BIN / binary
-            shutil.copy2(archive, dest)
+            shutil.copy2(source, dest)
             dest.chmod(dest.stat().st_mode | stat.S_IEXEC)
             log(f"installed {dest}", "ok")
-            return
-        found = list(tmp_path.rglob(binary))
-        if not found:
-            log(f"Binary {binary} not found in archive", "err")
-            return
-        dest = LOCAL_BIN / binary
-        shutil.copy2(found[0], dest)
-        dest.chmod(dest.stat().st_mode | stat.S_IEXEC)
-        log(f"installed {dest}", "ok")
+    except Exception as exc:
+        log(f"Failed to install {binary} from {repo}: {exc}", "err")
+
+
+def nvim_version_tuple() -> tuple[int, int, int] | None:
+    """Return (major, minor, patch) for the first nvim on PATH, or None."""
+    nvim = which("nvim")
+    if not nvim:
+        return None
+    try:
+        out = subprocess.check_output([nvim, "--version"], text=True, stderr=subprocess.DEVNULL)
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    # First line looks like: NVIM v0.10.2
+    first = out.splitlines()[0] if out else ""
+    import re
+
+    match = re.search(r"v?(\d+)\.(\d+)\.(\d+)", first)
+    if not match:
+        return None
+    return int(match.group(1)), int(match.group(2)), int(match.group(3))
+
+
+def nvim_meets_minimum(minimum: tuple[int, int, int] = (0, 9, 0)) -> bool:
+    current = nvim_version_tuple()
+    return current is not None and current >= minimum
+
+
+def install_neovim_linux() -> None:
+    """Install a LazyVim-capable Neovim from the official release tarball."""
+    minimum = (0, 9, 0)
+    if nvim_meets_minimum(minimum):
+        ver = ".".join(str(p) for p in nvim_version_tuple() or ())
+        log(f"Neovim {ver} already meets minimum {'.'.join(map(str, minimum))}", "ok")
+        return
+
+    current = nvim_version_tuple()
+    if current:
+        log(
+            f"Neovim {'.'.join(map(str, current))} is too old for LazyVim; installing upstream release",
+            "warn",
+        )
+    else:
+        log("Installing Neovim from upstream release")
+
+    if DRY_RUN:
+        log("[dry-run] install neovim release tarball into ~/.local", "warn")
+        return
+
+    arch = platform.machine().lower()
+    if arch in ("x86_64", "amd64"):
+        asset = "nvim-linux-x86_64.tar.gz"
+        folder = "nvim-linux-x86_64"
+    elif arch in ("aarch64", "arm64"):
+        asset = "nvim-linux-arm64.tar.gz"
+        folder = "nvim-linux-arm64"
+    else:
+        log(f"Unsupported arch for Neovim release tarball: {arch}", "err")
+        return
+
+    url = f"https://github.com/neovim/neovim/releases/latest/download/{asset}"
+    ensure_dir(LOCAL_BIN)
+    local_root = HOME / ".local"
+    ensure_dir(local_root)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        archive = tmp_path / asset
+        download(url, archive)
+        run(["tar", "-xzf", str(archive), "-C", str(tmp_path)])
+        extracted = tmp_path / folder
+        if not extracted.is_dir():
+            # Fallback: find the extracted top-level directory
+            dirs = [p for p in tmp_path.iterdir() if p.is_dir()]
+            if not dirs:
+                log("Neovim archive did not contain an install directory", "err")
+                return
+            extracted = dirs[0]
+
+        # Merge bin/lib/share into ~/.local so ~/.local/bin/nvim is on PATH
+        for sub in ("bin", "lib", "share"):
+            src = extracted / sub
+            if not src.exists():
+                continue
+            dest = local_root / sub
+            ensure_dir(dest)
+            for item in src.iterdir():
+                target = dest / item.name
+                if target.exists() or target.is_symlink():
+                    if target.is_dir() and not target.is_symlink():
+                        shutil.rmtree(target)
+                    else:
+                        target.unlink()
+                if item.is_dir():
+                    shutil.copytree(item, target, symlinks=True)
+                else:
+                    shutil.copy2(item, target)
+
+    nvim_bin = LOCAL_BIN / "nvim"
+    ensure_executable(nvim_bin)
+    os.environ["PATH"] = f"{LOCAL_BIN}:{os.environ.get('PATH', '')}"
+    if nvim_meets_minimum(minimum):
+        ver = ".".join(str(p) for p in nvim_version_tuple() or ())
+        log(f"installed Neovim {ver} -> {nvim_bin}", "ok")
+    else:
+        log("Neovim install finished but version check still failed", "err")
 
 
 def install_sshm() -> None:
@@ -573,7 +935,8 @@ def install_zellij_plugins() -> None:
 
 
 def link_configs() -> None:
-    log("Linking configuration files")
+    mode = "copying" if (running_in_container() or os.environ.get("DOTFILES_COPY_CONFIGS") == "1") else "linking"
+    log(f"{mode.capitalize()} configuration files")
     ensure_dir(LOCAL_BIN)
     ensure_dir(CONFIG_HOME)
 
@@ -586,6 +949,7 @@ def link_configs() -> None:
         (REPO_ROOT / "config" / "nvim", CONFIG_HOME / "nvim"),
         (REPO_ROOT / "config" / "kitty", CONFIG_HOME / "kitty"),
         (REPO_ROOT / "config" / "oh-my-posh", CONFIG_HOME / "oh-my-posh"),
+        (REPO_ROOT / "config" / "btop", CONFIG_HOME / "btop"),
         (REPO_ROOT / "config" / "tmux" / "tmux.conf", CONFIG_HOME / "tmux" / "tmux.conf"),
         (REPO_ROOT / "bin" / "weather.sh", LOCAL_BIN / "weather.sh"),
     ]
@@ -594,17 +958,15 @@ def link_configs() -> None:
         if not src.exists():
             log(f"missing source {src}", "warn")
             continue
-        symlink(src, dest)
+        place_config(src, dest)
 
     # k9s skin (keep skins dir; don't replace whole k9s config)
     skin_src = REPO_ROOT / "config" / "k9s" / "skins" / "catppuccin-mocha.yaml"
     skin_dest = CONFIG_HOME / "k9s" / "skins" / "catppuccin-mocha.yaml"
-    symlink(skin_src, skin_dest)
+    place_config(skin_src, skin_dest)
 
     if not DRY_RUN:
-        weather = LOCAL_BIN / "weather.sh"
-        if weather.exists():
-            weather.chmod(weather.stat().st_mode | stat.S_IEXEC)
+        ensure_executable(LOCAL_BIN / "weather.sh")
 
     link_cursor_rules()
     link_cursor_hooks()
@@ -625,11 +987,11 @@ def link_cursor_rules() -> None:
     if not src_dir.is_dir():
         log(f"missing Cursor rules dir {src_dir}", "warn")
         return
-    log("Linking Cursor user rules (~/.cursor/rules)")
+    log("Placing Cursor user rules (~/.cursor/rules)")
     for dest_dir in cursor_rule_dest_dirs():
         ensure_dir(dest_dir)
         for src in sorted(src_dir.glob("*.mdc")):
-            symlink(src, dest_dir / src.name)
+            place_config(src, dest_dir / src.name)
 
 
 def link_cursor_hooks() -> None:
@@ -638,16 +1000,14 @@ def link_cursor_hooks() -> None:
     ensure_dir(cursor_home)
     ensure_dir(hooks_dir)
 
-    symlink(REPO_ROOT / "config" / "cursor" / "hooks.json", cursor_home / "hooks.json")
-    symlink(
+    place_config(REPO_ROOT / "config" / "cursor" / "hooks.json", cursor_home / "hooks.json")
+    place_config(
         REPO_ROOT / "config" / "cursor" / "hooks" / "zellij-agent-activity-cursor.sh",
         hooks_dir / "zellij-agent-activity-cursor.sh",
     )
 
     if not DRY_RUN:
-        hook_script = hooks_dir / "zellij-agent-activity-cursor.sh"
-        if hook_script.exists():
-            hook_script.chmod(hook_script.stat().st_mode | stat.S_IEXEC)
+        ensure_executable(hooks_dir / "zellij-agent-activity-cursor.sh")
 
 
 def install_packages(os_name: str) -> None:
@@ -699,6 +1059,7 @@ def print_summary(os_name: str) -> None:
         "fzf",
         "fx",
         "fastfetch",
+        "btop",
         "cbonsai",
         "markdownlint-cli2",
     ]
