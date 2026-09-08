@@ -248,6 +248,7 @@ BREW_FORMULAE = [
     "zsh-autosuggestions",
     "tmux",
     "ripgrep",
+    "the_silver_searcher",
     "git-delta",
     "glow",
     "zoxide",
@@ -280,6 +281,7 @@ APT_PACKAGES = [
     "build-essential",
     "fontconfig",
     "ripgrep",
+    "silversearcher-ag",
     "python3-pip",
     "python3-venv",
 ]
@@ -397,11 +399,12 @@ def install_linux_binaries() -> None:
 
 
 def install_cli_qol_linux() -> None:
-    """Install ripgrep/delta/glow/zoxide/eza on Linux when missing."""
+    """Install ripgrep/ag/delta/glow/zoxide/eza on Linux when missing."""
     if is_debian_like():
         # Best-effort apt names; missing packages fall back to GitHub releases.
         apt_bins = {
             "ripgrep": "rg",
+            "silversearcher-ag": "ag",
             "eza": "eza",
             "zoxide": "zoxide",
             "glow": "glow",
@@ -431,6 +434,9 @@ def install_cli_qol_linux() -> None:
 
     if not which("rg"):
         install_github_release_binary("BurntSushi/ripgrep", "rg", asset_contains="unknown-linux")
+
+    if not which("ag"):
+        log("ag (the_silver_searcher) not found — install silversearcher-ag via apt or brew", "warn")
 
     if not which("fzf"):
         install_github_release_binary("junegunn/fzf", "fzf", asset_contains="linux")
@@ -1051,6 +1057,7 @@ def print_summary(os_name: str) -> None:
         "sshm",
         "kitty",
         "rg",
+        "ag",
         "jq",
         "delta",
         "glow",
