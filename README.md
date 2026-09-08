@@ -112,6 +112,8 @@ Aliases and key bindings come from `config/zsh/.zshrc` unless noted.
   (`linecast weather`, `linecast radar`, …).
 - **weather.sh** — DC dashboard in Zellij.
   Run: `weather` (needs linecast ≥ 2.2).
+  Layout: `config/zellij/layouts/dc-weather.kdl`
+  (radar, temperature, sunshine, moon, tides).
 
 ## Layout
 
@@ -126,6 +128,9 @@ Aliases and key bindings come from `config/zsh/.zshrc` unless noted.
     ├── cursor/hooks/       # → ~/.cursor/hooks/
     ├── cursor/rules/       # → ~/.cursor/rules
     ├── zellij/
+    │   └── layouts/
+    │       ├── default.kdl
+    │       └── dc-weather.kdl   # weather dashboard
     ├── nvim/               # LazyVim + catppuccin
     ├── kitty/              # fonts.conf (Nerd Font)
     ├── oh-my-posh/
@@ -170,6 +175,7 @@ weather
 ```
 
 Requires `zellij` and `linecast` ≥ 2.2.
+Uses the linked layout `dc-weather.kdl`.
 Location defaults to Washington, DC (`38.9072,-77.0369`).
 
 ## Platform notes

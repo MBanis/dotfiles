@@ -1,0 +1,44 @@
+layout {
+    // Match Zellij's default chrome so the user's normal tab/status bars show.
+    default_tab_template {
+        pane size=1 borderless=true {
+            plugin location="tab-bar"
+        }
+        children
+        pane size=1 borderless=true {
+            plugin location="status-bar"
+        }
+    }
+    // new_tab_template is a full tab blueprint (not wrapped by default_tab_template),
+    // so it must include the same chrome as a normal Zellij tab.
+    new_tab_template {
+        pane size=1 borderless=true {
+            plugin location="tab-bar"
+        }
+        pane
+        pane size=1 borderless=true {
+            plugin location="status-bar"
+        }
+    }
+    tab name="weather" split_direction="vertical" {
+        pane size="55%" name="radar" focus=true command="linecast" {
+            args "radar" "--location" "38.9072,-77.0369"
+        }
+        pane size="45%" split_direction="horizontal" {
+            pane size="50%" name="temperature" command="linecast" {
+                args "weather" "--location" "38.9072,-77.0369"
+            }
+            pane size="25%" split_direction="vertical" {
+                pane name="sunshine" command="linecast" {
+                    args "sunshine" "--location" "38.9072,-77.0369"
+                }
+                pane name="moon" command="linecast" {
+                    args "moon" "--location" "38.9072,-77.0369"
+                }
+            }
+            pane size="25%" name="tide" command="linecast" {
+                args "tides" "--location" "38.9072,-77.0369"
+            }
+        }
+    }
+}
