@@ -282,7 +282,8 @@ keybinds clear-defaults=true {
 plugins {
     about location="zellij:about"
     compact-bar location="zellij:compact-bar" {
-        tooltip "/"
+        // Leader-style toggle so plain "/" still reaches the shell/apps.
+        tooltip "Ctrl /"
     }
     configuration location="zellij:configuration"
     filepicker location="zellij:strider" {
