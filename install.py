@@ -265,6 +265,9 @@ APT_PACKAGES = [
     "silversearcher-ag",
     "python3-pip",
     "python3-venv",
+    # Needed for markdownlint-cli2 (LazyVim markdown lint) on Linux/WSL.
+    "nodejs",
+    "npm",
 ]
 
 
@@ -395,7 +398,6 @@ def install_cli_qol_linux() -> None:
             "fastfetch": "fastfetch",
             "cbonsai": "cbonsai",
             "btop": "btop",
-            "markdownlint-cli2": "markdownlint-cli2",
         }
         needed = [pkg for pkg, binary in apt_bins.items() if not which(binary)]
         if needed:
@@ -434,11 +436,50 @@ def install_cli_qol_linux() -> None:
     if not which("cbonsai"):
         log("cbonsai not found — install from https://gitlab.com/jallbrit/cbonsai", "warn")
 
-    if not which("markdownlint-cli2"):
-        if which("npm"):
-            run(["npm", "install", "-g", "markdownlint-cli2"], check=False)
-        if not which("markdownlint-cli2"):
-            log("markdownlint-cli2 not found — LazyVim markdown lint needs it (brew/npm)", "warn")
+    install_markdownlint_cli2()
+
+
+def ensure_npm() -> bool:
+    """Ensure npm is available. On Debian/WSL, install nodejs+npm via apt when missing."""
+    if which("npm"):
+        return True
+    if is_debian_like():
+        log("Installing nodejs/npm for markdownlint-cli2")
+        apt_install_if_available(["nodejs", "npm"])
+    return which("npm") is not None
+
+
+def install_markdownlint_cli2() -> None:
+    """Install markdownlint-cli2 for LazyVim markdown lint (nvim-lint / conform)."""
+    if which("markdownlint-cli2") or (LOCAL_BIN / "markdownlint-cli2").exists():
+        log("markdownlint-cli2 already installed", "ok")
+        return
+
+    if which("brew"):
+        brew_install(["markdownlint-cli2"])
+        if which("markdownlint-cli2"):
+            return
+
+    if not ensure_npm():
+        log(
+            "markdownlint-cli2 missing — install Node.js/npm, then: "
+            "npm install -g --prefix ~/.local markdownlint-cli2",
+            "warn",
+        )
+        return
+
+    ensure_dir(LOCAL_BIN)
+    # Install into ~/.local so the binary lands on PATH without sudo.
+    run(
+        ["npm", "install", "-g", "--prefix", str(HOME / ".local"), "markdownlint-cli2"],
+        check=False,
+    )
+    os.environ["PATH"] = f"{LOCAL_BIN}:{os.environ.get('PATH', '')}"
+    if which("markdownlint-cli2") or (LOCAL_BIN / "markdownlint-cli2").exists():
+        log(f"installed markdownlint-cli2 -> {LOCAL_BIN / 'markdownlint-cli2'}", "ok")
+    else:
+        log("markdownlint-cli2 install failed (npm global)", "warn")
+
 
 def apt_package_available(pkg: str) -> bool:
     """Return True when apt-cache knows about a package."""
