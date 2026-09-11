@@ -21,7 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN sed -i 's/# en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen && locale-gen
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 
-# Create a non-root user so symlinks land in a real home directory.
+# Create a non-root user so configs install into a real home directory.
 RUN useradd -m -s /bin/bash dotfiles \
     && echo "dotfiles ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 

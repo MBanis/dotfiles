@@ -19,7 +19,7 @@ The first `nvim` launch installs LazyVim plugins.
 | --- | --- |
 | `--dry-run` | Print actions only |
 | `--skip-pkgs` | Configs + shell plugins only (no packages) |
-| `--configs` | Symlink configs / `weather.sh` only |
+| `--configs` | Copy configs / `weather.sh` only |
 
 ## Tools and usage
 
@@ -139,21 +139,21 @@ Aliases and key bindings come from `config/zsh/.zshrc` unless noted.
     └── tmux/
 ```
 
-Configs are **symlinked** into `~` / `~/.config`.
+Configs are **copied** into `~` / `~/.config`.
 Existing files are backed up as `*.bak.<timestamp>`.
 
 ## Cursor user rules
 
-`config/cursor/rules/*.mdc` links to `~/.cursor/rules/`.
+`config/cursor/rules/*.mdc` is copied to `~/.cursor/rules/`.
 Cursor applies them in every project for this account.
 Restart Cursor after install.
-On WSL, the installer also links `%USERPROFILE%\.cursor\rules`
+On WSL, the installer also copies into `%USERPROFILE%\.cursor\rules`
 when `USERPROFILE` is set.
 
 ## Cursor hooks
 
-`config/cursor/hooks.json` links to `~/.cursor/hooks.json`.
-`config/cursor/hooks/*` links into `~/.cursor/hooks/`.
+`config/cursor/hooks.json` is copied to `~/.cursor/hooks.json`.
+`config/cursor/hooks/*` is copied into `~/.cursor/hooks/`.
 
 This wires Cursor Agent / CLI events into the Zellij
 `agent-activity` plugin through `zellij pipe`.

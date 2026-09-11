@@ -6,7 +6,7 @@ Usage:
   python3 install.py              # full install
   python3 install.py --dry-run    # print actions only
   python3 install.py --skip-pkgs  # configs + shell only
-  python3 install.py --configs    # symlink configs only
+  python3 install.py --configs    # copy configs only
 """
 
 from __future__ import annotations
@@ -108,24 +108,8 @@ def backup_path(path: Path) -> None:
     log(f"backed up {path} -> {dest}", "warn")
 
 
-def symlink(src: Path, dest: Path) -> None:
-    src = src.resolve()
-    dest = dest.expanduser()
-    if dest.is_symlink() and dest.resolve() == src:
-        log(f"already linked {dest}", "ok")
-        return
-    ensure_dir(dest.parent)
-    if dest.exists() or dest.is_symlink():
-        backup_path(dest)
-    if DRY_RUN:
-        log(f"[dry-run] ln -s {src} {dest}", "warn")
-        return
-    dest.symlink_to(src)
-    log(f"linked {dest} -> {src}", "ok")
-
-
 def copy_path(src: Path, dest: Path) -> None:
-    """Copy a file or directory into place (used in containers to avoid bind-mount EIO)."""
+    """Copy a file or directory into place (never symlink)."""
     src = src.resolve()
     dest = dest.expanduser()
     ensure_dir(dest.parent)
@@ -181,11 +165,8 @@ def _copytree_resilient(src: Path, dest: Path) -> None:
 
 
 def place_config(src: Path, dest: Path) -> None:
-    """Symlink on hosts; copy inside containers (Docker bind mounts break some readers)."""
-    if running_in_container() or os.environ.get("DOTFILES_COPY_CONFIGS") == "1":
-        copy_path(src, dest)
-    else:
-        symlink(src, dest)
+    """Install a config file or directory by copying it into place."""
+    copy_path(src, dest)
 
 
 def ensure_executable(path: Path) -> None:
@@ -541,11 +522,14 @@ def install_linecast() -> None:
     ensure_dir(LOCAL_BIN)
     dest = LOCAL_BIN / "linecast"
     if dest.exists() or dest.is_symlink():
-        dest.unlink()
-    dest.symlink_to(venv_linecast)
+        if dest.is_dir() and not dest.is_symlink():
+            shutil.rmtree(dest)
+        else:
+            dest.unlink()
+    shutil.copy2(venv_linecast, dest)
     ensure_executable(dest)
     os.environ["PATH"] = f"{LOCAL_BIN}:{os.environ.get('PATH', '')}"
-    log(f"installed {dest} -> {venv_linecast}", "ok")
+    log(f"installed {dest} <- {venv_linecast}", "ok")
 
 
 ARCHIVE_SUFFIXES = (".tar.gz", ".tgz", ".tar.xz", ".txz", ".zip")
@@ -941,8 +925,7 @@ def install_zellij_plugins() -> None:
 
 
 def link_configs() -> None:
-    mode = "copying" if (running_in_container() or os.environ.get("DOTFILES_COPY_CONFIGS") == "1") else "linking"
-    log(f"{mode.capitalize()} configuration files")
+    log("Copying configuration files")
     ensure_dir(LOCAL_BIN)
     ensure_dir(CONFIG_HOME)
 
@@ -1077,7 +1060,7 @@ def print_summary(os_name: str) -> None:
         status = f"{C.OK}found{C.RST} ({path})" if path else f"{C.WARN}missing{C.RST}"
         print(f"  {t:12} {status}")
     weather = LOCAL_BIN / "weather.sh"
-    print(f"  {'weather':12} {C.OK + 'linked' + C.RST if weather.exists() or DRY_RUN else C.WARN + 'missing' + C.RST}")
+    print(f"  {'weather':12} {C.OK + 'copied' + C.RST if weather.exists() or DRY_RUN else C.WARN + 'missing' + C.RST}")
     print()
     log(f"OS: {os_name} | repo: {REPO_ROOT}")
     log("Open a new terminal (or `exec zsh`) to load the new shell config.", "ok")
@@ -1094,7 +1077,7 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Bootstrap dotfiles on macOS / Linux / WSL")
     p.add_argument("--dry-run", action="store_true", help="Print actions without changing the system")
     p.add_argument("--skip-pkgs", action="store_true", help="Skip package installs")
-    p.add_argument("--configs", action="store_true", help="Only symlink configs / scripts")
+    p.add_argument("--configs", action="store_true", help="Only copy configs / scripts")
     return p.parse_args()
 
 
