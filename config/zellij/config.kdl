@@ -282,8 +282,8 @@ keybinds clear-defaults=true {
 plugins {
     about location="zellij:about"
     compact-bar location="zellij:compact-bar" {
-        // Leader-style toggle so plain "/" still reaches the shell/apps.
-        tooltip "Ctrl /"
+        // F1 works reliably in WSL terminals; Ctrl+/ often never arrives.
+        tooltip "F1"
     }
     configuration location="zellij:configuration"
     filepicker location="zellij:strider" {
