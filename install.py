@@ -827,24 +827,6 @@ def install_neovim_linux() -> None:
         log("Neovim install finished but version check still failed", "err")
 
 
-def install_sshm() -> None:
-    """Install Gu1llaum-3/sshm SSH manager TUI."""
-    if which("sshm"):
-        log("sshm already installed", "ok")
-        return
-    if which("go"):
-        env = os.environ.copy()
-        env["GOBIN"] = str(LOCAL_BIN)
-        run(["go", "install", "github.com/Gu1llaum-3/sshm@latest"], check=False, env=env)
-        if which("sshm") or (LOCAL_BIN / "sshm").exists():
-            log("sshm installed via go", "ok")
-            return
-    # Release assets look like sshm_Darwin_arm64.tar.gz / sshm_Linux_x86_64.tar.gz
-    os_name = detect_os()
-    needle = "Darwin" if os_name == "macos" else "Linux"
-    install_github_release_binary("Gu1llaum-3/sshm", "sshm", asset_contains=needle)
-
-
 def install_nerd_font_linux() -> None:
     fonts_dir = HOME / ".local" / "share" / "fonts"
     markers = [
@@ -953,8 +935,6 @@ def install_zellij_plugins() -> None:
 
     plugins = {
         "zjstatus.wasm": "https://github.com/dj95/zjstatus/releases/latest/download/zjstatus.wasm",
-        "zextract.wasm": "https://github.com/codingfragments/zellij-zextract/releases/latest/download/zextract.wasm",
-        "zellij-agent-activity.wasm": "https://github.com/vmaerten/zellij-agent-activity/releases/latest/download/zellij-agent-activity.wasm",
     }
 
     for name, url in plugins.items():
@@ -999,7 +979,6 @@ def link_configs() -> None:
         ensure_executable(LOCAL_BIN / "weather.sh")
 
     link_cursor_rules()
-    link_cursor_hooks()
 
 
 def cursor_rule_dest_dirs() -> list[Path]:
@@ -1024,22 +1003,6 @@ def link_cursor_rules() -> None:
             place_config(src, dest_dir / src.name)
 
 
-def link_cursor_hooks() -> None:
-    cursor_home = HOME / ".cursor"
-    hooks_dir = cursor_home / "hooks"
-    ensure_dir(cursor_home)
-    ensure_dir(hooks_dir)
-
-    place_config(REPO_ROOT / "config" / "cursor" / "hooks.json", cursor_home / "hooks.json")
-    place_config(
-        REPO_ROOT / "config" / "cursor" / "hooks" / "zellij-agent-activity-cursor.sh",
-        hooks_dir / "zellij-agent-activity-cursor.sh",
-    )
-
-    if not DRY_RUN:
-        ensure_executable(hooks_dir / "zellij-agent-activity-cursor.sh")
-
-
 def install_packages(os_name: str) -> None:
     if SKIP_PKGS:
         log("Skipping package installs (--skip-pkgs)", "warn")
@@ -1061,7 +1024,6 @@ def install_packages(os_name: str) -> None:
             log("Unknown Linux distro — installing binaries only", "warn")
         install_linux_binaries()
 
-    install_sshm()
     install_oh_my_zsh()
     install_tmux_catppuccin()
     install_zellij_plugins()
@@ -1078,7 +1040,6 @@ def print_summary(os_name: str) -> None:
         "docker",
         "minikube",
         "linecast",
-        "sshm",
         "kitty",
         "rg",
         "ag",

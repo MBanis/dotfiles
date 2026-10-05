@@ -167,13 +167,6 @@ keybinds clear-defaults=true {
         bind "Alt o" { MoveTab "right"; }
         bind "Alt p" { TogglePaneInGroup; }
         bind "Alt Shift p" { ToggleGroupMarking; }
-        bind "Alt x" {
-            LaunchOrFocusPlugin "zextract" {
-                floating true
-                move_to_focused_tab true
-            }
-            SwitchToMode "normal"
-        }
         bind "Ctrl q" { Quit; }
     }
     shared_except "locked" "move" {
@@ -383,7 +376,6 @@ plugins {
     }
     strider location="zellij:strider"
     tab-bar location="zellij:tab-bar"
-    zextract location="file:~/.config/zellij/plugins/zextract.wasm"
     welcome-screen location="zellij:session-manager" {
         welcome_screen true
     }
@@ -394,9 +386,6 @@ plugins {
 // eg. "https://example.com/my-plugin.wasm"
 load_plugins {
     zellij:link
-    "file:~/.config/zellij/plugins/zellij-agent-activity.wasm" {
-        mode "rename"
-    }
 }
 web_client {
     font "JetBrainsMono Nerd Font Mono"

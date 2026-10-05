@@ -41,7 +41,7 @@ Aliases and key bindings come from `config/zsh/.zshrc` unless noted.
 - **tmux** — Alternate multiplexer.
   Catppuccin plugin under `~/.tmux`.
 - **zellij** — Primary multiplexer (`zj`).
-  Plugins: `zjstatus`, `zextract` (`Alt-x`), `agent-activity`.
+  Plugin: `zjstatus`.
 
 ### Editor
 
@@ -49,8 +49,6 @@ Aliases and key bindings come from `config/zsh/.zshrc` unless noted.
   First launch installs plugins.
 - **markdownlint-cli2** — Markdown lint for LazyVim.
   Run: `markdownlint-cli2 file.md`.
-- **mermaid.nvim** — Mermaid in nvim:
-  `<leader>mp` preview, `<leader>mx` stop.
 
 ### Search and navigation
 
@@ -72,7 +70,6 @@ Aliases and key bindings come from `config/zsh/.zshrc` unless noted.
 - **delta** — Side-by-side git diffs with line numbers
   (`git diff`, `git show`).
 - **jq** — JSON on the CLI: `jq . file.json`.
-  Also used by Cursor → Zellij hooks.
 - **fx** — Interactive JSON viewer:
   `fx file.json` or `curl … | fx`.
 - **glow** — Render Markdown in the terminal:
@@ -87,9 +84,6 @@ Aliases and key bindings come from `config/zsh/.zshrc` unless noted.
 - **minikube** — Local cluster: `minikube start`.
 - **k9s** — Cluster TUI (`k9s`).
   Skin: `catppuccin-mocha`. Alias: `k` → `kubectl`.
-- **sshm** — SSH host TUI
-  ([Gu1llaum-3/sshm](https://github.com/Gu1llaum-3/sshm)):
-  `sshm`.
 
 ### System and fun
 
@@ -103,8 +97,6 @@ Aliases and key bindings come from `config/zsh/.zshrc` unless noted.
 
 - **Cursor user rules** — Linked to `~/.cursor/rules`
   for every project on this account.
-- **Cursor hooks** — Linked to `~/.cursor/hooks.json`.
-  Sends agent events to Zellij `agent-activity`.
 
 ### Weather
 
@@ -124,8 +116,6 @@ Aliases and key bindings come from `config/zsh/.zshrc` unless noted.
 └── config/
     ├── zsh/.zshrc
     ├── git/config          # delta as git pager (XDG)
-    ├── cursor/hooks.json   # → ~/.cursor/hooks.json
-    ├── cursor/hooks/       # → ~/.cursor/hooks/
     ├── cursor/rules/       # → ~/.cursor/rules
     ├── zellij/
     │   └── layouts/
@@ -150,20 +140,9 @@ Restart Cursor after install.
 On WSL, the installer also copies into `%USERPROFILE%\.cursor\rules`
 when `USERPROFILE` is set.
 
-## Cursor hooks
-
-`config/cursor/hooks.json` is copied to `~/.cursor/hooks.json`.
-`config/cursor/hooks/*` is copied into `~/.cursor/hooks/`.
-
-This wires Cursor Agent / CLI events into the Zellij
-`agent-activity` plugin through `zellij pipe`.
-The hook uses `jq`, `bash`, and `zellij`.
-
 ## Zellij plugins
 
 - `zjstatus` replaces the default bottom status bar
-- `zextract` opens on `Alt-x`
-- `zellij-agent-activity` prefixes tab names with agent state
 
 The installer downloads plugin `.wasm` files into
 `~/.config/zellij/plugins/`.
