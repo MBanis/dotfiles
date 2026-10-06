@@ -19,7 +19,7 @@ The first `nvim` launch installs LazyVim plugins.
 | --- | --- |
 | `--dry-run` | Print actions only |
 | `--skip-pkgs` | Configs + shell plugins only (no packages) |
-| `--configs` | Copy configs / `weather.sh` only |
+| `--configs` | Copy configs only |
 
 ## Tools and usage
 
@@ -47,8 +47,6 @@ Aliases and key bindings come from `config/zsh/.zshrc` unless noted.
 
 - **neovim** + LazyVim — Editor (`nvim`, also `vim`).
   First launch installs plugins.
-- **markdownlint-cli2** — Markdown lint for LazyVim.
-  Run: `markdownlint-cli2 file.md`.
 
 ### Search and navigation
 
@@ -98,29 +96,18 @@ Aliases and key bindings come from `config/zsh/.zshrc` unless noted.
 - **Cursor user rules** — Linked to `~/.cursor/rules`
   for every project on this account.
 
-### Weather
-
-- **linecast** — Terminal weather / radar panes
-  (`linecast weather`, `linecast radar`, …).
-- **weather.sh** — DC dashboard in Zellij.
-  Run: `weather` (needs linecast ≥ 2.2).
-  Layout: `config/zellij/layouts/dc-weather.kdl`
-  (radar, temperature, sunshine, moon, tides).
-
 ## Layout
 
 ```text
 .
 ├── install.py              # single entrypoint
-├── bin/weather.sh
 └── config/
     ├── zsh/.zshrc
     ├── git/config          # delta as git pager (XDG)
     ├── cursor/rules/       # → ~/.cursor/rules
     ├── zellij/
     │   └── layouts/
-    │       ├── default.kdl
-    │       └── dc-weather.kdl   # weather dashboard
+    │       └── default.kdl
     ├── nvim/               # LazyVim + catppuccin
     ├── kitty/              # fonts.conf (Nerd Font)
     ├── oh-my-posh/
@@ -146,16 +133,6 @@ when `USERPROFILE` is set.
 
 The installer downloads plugin `.wasm` files into
 `~/.config/zellij/plugins/`.
-
-## Weather dashboard
-
-```bash
-weather
-```
-
-Requires `zellij` and `linecast` ≥ 2.2.
-Uses the linked layout `dc-weather.kdl`.
-Location defaults to Washington, DC (`38.9072,-77.0369`).
 
 ## Platform notes
 

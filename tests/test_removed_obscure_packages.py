@@ -26,6 +26,37 @@ class InstallerApiRemovalTests(unittest.TestCase):
     def test_link_cursor_hooks_removed(self) -> None:
         self.assertFalse(hasattr(install, "link_cursor_hooks"))
 
+    def test_linecast_and_markdownlint_helpers_removed(self) -> None:
+        for name in (
+            "install_linecast",
+            "install_markdownlint_cli2",
+            "ensure_npm",
+            "_pip_available",
+            "python_version_tuple",
+        ):
+            self.assertFalse(hasattr(install, name), name)
+
+    def test_brew_and_apt_lists_drop_removed_packages(self) -> None:
+        self.assertNotIn("linecast", install.BREW_FORMULAE)
+        self.assertNotIn("markdownlint-cli2", install.BREW_FORMULAE)
+        self.assertNotIn("nodejs", install.APT_PACKAGES)
+        self.assertNotIn("npm", install.APT_PACKAGES)
+        self.assertNotIn("python3-pip", install.APT_PACKAGES)
+        self.assertNotIn("python3-venv", install.APT_PACKAGES)
+
+    def test_summary_tools_drop_linecast_and_markdownlint(self) -> None:
+        # print_summary builds its list inline; assert via a dry run of the list
+        # by inspecting the source constants that feed package installs.
+        self.assertNotIn("linecast", install.BREW_FORMULAE)
+        with mock.patch.object(install, "which", return_value=None), mock.patch(
+            "builtins.print"
+        ) as print_mock:
+            install.print_summary("linux")
+        printed = " ".join(str(c.args[0]) if c.args else "" for c in print_mock.call_args_list)
+        self.assertNotIn("linecast", printed)
+        self.assertNotIn("markdownlint", printed)
+        self.assertNotIn("weather", printed)
+
 
 class InstallZellijPluginsTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -87,8 +118,6 @@ class LinkConfigsNoHooksTests(unittest.TestCase):
             "---\ndescription: test\n---\n",
             encoding="utf-8",
         )
-        (self.repo / "bin").mkdir(parents=True)
-        (self.repo / "bin" / "weather.sh").write_text("#!/bin/sh\n", encoding="utf-8")
         install.DRY_RUN = False
 
     def tearDown(self) -> None:
@@ -117,6 +146,7 @@ class LinkConfigsNoHooksTests(unittest.TestCase):
         self.assertTrue(any(str(dest).endswith(".cursor/rules/example.mdc") for _, dest in placed))
         self.assertFalse(any("hooks.json" in name for name in dest_names))
         self.assertFalse(any("zellij-agent-activity-cursor.sh" in name for name in dest_names))
+        self.assertFalse(any("weather.sh" in name for name in dest_names))
 
 
 class InstallPackagesNoSshmTests(unittest.TestCase):

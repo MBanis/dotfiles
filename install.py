@@ -225,7 +225,6 @@ BREW_FORMULAE = [
     "helm",
     "minikube",
     "oh-my-posh",
-    "linecast",
     "zsh-autosuggestions",
     "tmux",
     "ripgrep",
@@ -239,7 +238,6 @@ BREW_FORMULAE = [
     "fastfetch",
     "cbonsai",
     "btop",
-    "markdownlint-cli2",
 ]
 
 BREW_CASKS = [
@@ -263,11 +261,6 @@ APT_PACKAGES = [
     "fontconfig",
     "ripgrep",
     "silversearcher-ag",
-    "python3-pip",
-    "python3-venv",
-    # Needed for markdownlint-cli2 (LazyVim markdown lint) on Linux/WSL.
-    "nodejs",
-    "npm",
 ]
 
 
@@ -364,9 +357,6 @@ def install_linux_binaries() -> None:
     else:
         log("Install Docker manually for this distro", "warn")
 
-    # linecast — Debian blocks bare pip installs (PEP 668); use a user venv
-    install_linecast()
-
     # zsh-autosuggestions
     if is_debian_like():
         run(["sudo", "apt-get", "install", "-y", "zsh-autosuggestions"], check=False)
@@ -436,50 +426,6 @@ def install_cli_qol_linux() -> None:
     if not which("cbonsai"):
         log("cbonsai not found — install from https://gitlab.com/jallbrit/cbonsai", "warn")
 
-    install_markdownlint_cli2()
-
-
-def ensure_npm() -> bool:
-    """Ensure npm is available. On Debian/WSL, install nodejs+npm via apt when missing."""
-    if which("npm"):
-        return True
-    if is_debian_like():
-        log("Installing nodejs/npm for markdownlint-cli2")
-        apt_install_if_available(["nodejs", "npm"])
-    return which("npm") is not None
-
-
-def install_markdownlint_cli2() -> None:
-    """Install markdownlint-cli2 for LazyVim markdown lint (nvim-lint / conform)."""
-    if which("markdownlint-cli2") or (LOCAL_BIN / "markdownlint-cli2").exists():
-        log("markdownlint-cli2 already installed", "ok")
-        return
-
-    if which("brew"):
-        brew_install(["markdownlint-cli2"])
-        if which("markdownlint-cli2"):
-            return
-
-    if not ensure_npm():
-        log(
-            "markdownlint-cli2 missing — install Node.js/npm, then: "
-            "npm install -g --prefix ~/.local markdownlint-cli2",
-            "warn",
-        )
-        return
-
-    ensure_dir(LOCAL_BIN)
-    # Install into ~/.local so the binary lands on PATH without sudo.
-    run(
-        ["npm", "install", "-g", "--prefix", str(HOME / ".local"), "markdownlint-cli2"],
-        check=False,
-    )
-    os.environ["PATH"] = f"{LOCAL_BIN}:{os.environ.get('PATH', '')}"
-    if which("markdownlint-cli2") or (LOCAL_BIN / "markdownlint-cli2").exists():
-        log(f"installed markdownlint-cli2 -> {LOCAL_BIN / 'markdownlint-cli2'}", "ok")
-    else:
-        log("markdownlint-cli2 install failed (npm global)", "warn")
-
 
 def apt_package_available(pkg: str) -> bool:
     """Return True when apt-cache knows about a package."""
@@ -503,74 +449,6 @@ def apt_install_if_available(pkgs: Iterable[str]) -> None:
         log(f"apt package not available: {pkg} (will try other sources)", "warn")
     if available:
         run(["sudo", "apt-get", "install", "-y", *available], check=False)
-
-
-def _pip_available() -> bool:
-    """True when `python3 -m pip` works."""
-    if DRY_RUN:
-        return True
-    result = subprocess.run(
-        [sys.executable, "-m", "pip", "--version"],
-        check=False,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    return result.returncode == 0
-
-
-def python_version_tuple() -> tuple[int, int]:
-    return sys.version_info.major, sys.version_info.minor
-
-
-def install_linecast() -> None:
-    """Install linecast into a user venv and expose ~/.local/bin/linecast."""
-    if which("linecast") or (LOCAL_BIN / "linecast").exists():
-        log("linecast already installed", "ok")
-        return
-
-    if python_version_tuple() < (3, 10):
-        log(
-            f"linecast needs Python >= 3.10 (found {sys.version.split()[0]}); skipping",
-            "warn",
-        )
-        return
-
-    if is_debian_like():
-        apt_install_if_available(["python3-pip", "python3-venv"])
-
-    if DRY_RUN:
-        log("[dry-run] python3 -m venv + pip install linecast", "warn")
-        return
-
-    venv_dir = HOME / ".local" / "share" / "linecast-venv"
-    venv_python = venv_dir / "bin" / "python"
-    venv_linecast = venv_dir / "bin" / "linecast"
-
-    ensure_dir(venv_dir.parent)
-    if not venv_python.exists():
-        log(f"Creating linecast venv at {venv_dir}")
-        rc = run([sys.executable, "-m", "venv", str(venv_dir)], check=False)
-        if rc != 0 or not venv_python.exists():
-            log("Failed to create linecast venv (is python3-venv installed?)", "err")
-            return
-
-    log("Installing linecast into user venv")
-    rc = run([str(venv_python), "-m", "pip", "install", "--upgrade", "pip", "linecast"], check=False)
-    if rc != 0 or not venv_linecast.exists():
-        log("linecast pip install failed", "err")
-        return
-
-    ensure_dir(LOCAL_BIN)
-    dest = LOCAL_BIN / "linecast"
-    if dest.exists() or dest.is_symlink():
-        if dest.is_dir() and not dest.is_symlink():
-            shutil.rmtree(dest)
-        else:
-            dest.unlink()
-    shutil.copy2(venv_linecast, dest)
-    ensure_executable(dest)
-    os.environ["PATH"] = f"{LOCAL_BIN}:{os.environ.get('PATH', '')}"
-    log(f"installed {dest} <- {venv_linecast}", "ok")
 
 
 ARCHIVE_SUFFIXES = (".tar.gz", ".tgz", ".tar.xz", ".txz", ".zip")
@@ -961,7 +839,6 @@ def link_configs() -> None:
         (REPO_ROOT / "config" / "oh-my-posh", CONFIG_HOME / "oh-my-posh"),
         (REPO_ROOT / "config" / "btop", CONFIG_HOME / "btop"),
         (REPO_ROOT / "config" / "tmux" / "tmux.conf", CONFIG_HOME / "tmux" / "tmux.conf"),
-        (REPO_ROOT / "bin" / "weather.sh", LOCAL_BIN / "weather.sh"),
     ]
 
     for src, dest in mappings:
@@ -974,9 +851,6 @@ def link_configs() -> None:
     skin_src = REPO_ROOT / "config" / "k9s" / "skins" / "catppuccin-mocha.yaml"
     skin_dest = CONFIG_HOME / "k9s" / "skins" / "catppuccin-mocha.yaml"
     place_config(skin_src, skin_dest)
-
-    if not DRY_RUN:
-        ensure_executable(LOCAL_BIN / "weather.sh")
 
     link_cursor_rules()
 
@@ -1039,7 +913,6 @@ def print_summary(os_name: str) -> None:
         "helm",
         "docker",
         "minikube",
-        "linecast",
         "kitty",
         "rg",
         "ag",
@@ -1053,7 +926,6 @@ def print_summary(os_name: str) -> None:
         "fastfetch",
         "btop",
         "cbonsai",
-        "markdownlint-cli2",
     ]
     print()
     log("Install summary")
@@ -1061,8 +933,6 @@ def print_summary(os_name: str) -> None:
         path = which(t)
         status = f"{C.OK}found{C.RST} ({path})" if path else f"{C.WARN}missing{C.RST}"
         print(f"  {t:12} {status}")
-    weather = LOCAL_BIN / "weather.sh"
-    print(f"  {'weather':12} {C.OK + 'copied' + C.RST if weather.exists() or DRY_RUN else C.WARN + 'missing' + C.RST}")
     print()
     log(f"OS: {os_name} | repo: {REPO_ROOT}")
     log("Open a new terminal (or `exec zsh`) to load the new shell config.", "ok")
