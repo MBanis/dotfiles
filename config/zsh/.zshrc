@@ -55,7 +55,6 @@ if command -v zoxide >/dev/null 2>&1; then
 fi
 
 # Aliases
-alias weather='bash "$HOME/.local/bin/weather.sh"'
 alias vim='nvim'
 alias k='kubectl'
 alias zj='zellij'
